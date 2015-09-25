@@ -1,0 +1,180 @@
+package com.lethe_river.bloom;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+import java.util.Arrays;
+
+/**
+ * BloomFilterは集合の包含関係を判定するためのデータ構造である．
+ * 
+ * <p>BloomFilterの包含判定は擬陽性を伴うが，省スペース且つ高速である．
+ * また，複数の集合のBloomFilterから和集合のBloomFilterを計算できる．
+ * これらの処理を行うためには,同一の{@link BloomConfig}から生成したBloomFilterである必要がある．
+ * 
+ * @author YuyaAizawa
+ *
+ * @param <T> Bloom filterの要素
+ */
+public final class BloomFilter<T> implements Cloneable {
+	private final BloomConfig<T> config;
+	private final int[] filter;
+	
+	BloomFilter(BloomConfig<T> config, int[] filter) {
+		this.config = config;
+		this.filter = filter;
+	}
+	
+	/**
+	 * このBloomFilterがtargetを包含するか判定する．
+	 * 対象は同一の{@link BloomConfig}から生成される必要がある．
+	 * @param target
+	 * @return
+	 */
+	public boolean contains(BloomFilter<T> target) {
+		checkConfig(target);
+		
+		int[] a = this.filter;
+		int[] b = target.filter;
+		
+		for(int i = 0;i < filter.length;i++) {
+			if((a[i] & b[i]) != b[i]) {
+					return false;
+			}
+		}
+		return true;
+	}
+	
+	/**
+	 * このBloomFilterがtargetの和を計算する．
+	 * 対象は同一の{@link BloomConfig}から生成される必要がある．
+	 * @param target
+	 * @return 要素の和に対応するBloomFilter
+	 */
+	public BloomFilter<T> union(BloomFilter<T> target) {
+		checkConfig(target);
+		
+		int[] a = this.filter;
+		int[] b = target.filter;
+		int[] c = new int[filter.length];
+		
+		for(int i = 0;i < filter.length;i++) {
+			c[i] = a[i] | b[i];
+		}
+		return new BloomFilter<>(config, c);
+	}
+	
+	private void checkConfig(BloomFilter<T> target) {
+		if(!config.equals(target.config)) {
+			throw new IllegalArgumentException("both filters must be genarated by the same generator");
+		}
+	}
+	
+	/**
+	 * このBloomFilterのbyte配列表現を返す．
+	 * @return
+	 */
+	public byte[] toByteArray() {
+		ByteBuffer byteBuffer = ByteBuffer.allocate(filter.length * 4);
+		IntBuffer intBuffer = byteBuffer.asIntBuffer();
+		intBuffer.put(filter);
+		
+		return byteBuffer.array();
+	}
+	
+	/**
+	 * このBloomFilterのbyte配列表現を{@link java.io.InputStream}で取得する．
+	 * @return
+	 */
+	public InputStream toByteStream() {
+		return new InputStream() {
+			int index = 0;
+			byte[] cach = new byte[4]; 
+			ByteBuffer buffer = ByteBuffer.wrap(cach);
+			
+			@Override
+			public int read() throws IOException {
+				if(index == filter.length * 4) {
+					return -1;
+				}
+				if(index % 4 == 0) {
+					buffer.putInt(0, index / 4);
+				}
+				int retVal = cach[index % 4] & 0xff;
+				index++;
+				return retVal;
+			}
+		};
+	}
+	
+	/**
+	 * このBloomFilterを表す二進数の文字列を返す．
+	 * @return
+	 */
+	public String toBinaryString() {
+		StringBuilder sb = new StringBuilder();
+		for(int i = filter.length-1;i >= 0;i--) {
+			sb.append(toBinaryString(filter[i]));
+		}
+		return sb.toString();
+	}
+	
+	private static String toBinaryString(int i) {
+		String notFilled = Integer.toBinaryString(i);
+		StringBuilder sb = new StringBuilder();
+		for(int j = 32 - notFilled.length();j > 0;j--) {
+			sb.append("0");
+		}
+		return sb.toString()+notFilled;
+	}
+	
+	@Override
+	protected Object clone() throws CloneNotSupportedException {
+		return new BloomFilter<>(config, Arrays.copyOf(filter, filter.length));
+	}
+	
+	/**
+	 * さんぷるだよ．消すかもよ．
+	 * @param args
+	 */
+	public static void main(String[] args) {
+		
+		BloomConfig<String> bloomConfig = new BloomConfig<>(
+				Arrays.asList(String::hashCode),
+				16);
+		
+		String str = new String("abc");
+		
+		System.out.println("-- hashCode ver. --");
+		BloomFilter<String> abcDef = bloomConfig.getFilter(Arrays.asList("abc", "def"));
+		BloomFilter<String> abc    = bloomConfig.getFilter("abc");
+		
+		System.out.println("[abc]     :"+bloomConfig.getFilter("abc").toBinaryString());
+		System.out.println("[def]     :"+bloomConfig.getFilter("def").toBinaryString());
+		System.out.println("[ghi]     :"+bloomConfig.getFilter("ghi").toBinaryString());
+		System.out.println("[jkl]     :"+bloomConfig.getFilter("jkl").toBinaryString());
+		System.out.println("[abc, def]:"+abcDef.toBinaryString());
+		System.out.println();
+		System.out.println("[abc, def]"+(abcDef.contains(bloomConfig.getFilter(str)) ? " may contain" : " does not contain") + " [abc]");
+		System.out.println("[abc]"+(abc.contains(bloomConfig.getFilter("def")) ? " may contain" : " does not contain") + " [def]");
+		
+		
+		System.out.println();
+		System.out.println();
+		System.out.println("-- sha256 ver. --");
+		BloomConfig<String> bloomConfig2 = BloomConfig.withSHA256(4, 16, new byte[]{1,2,3});
+		BloomFilter<String> abcDef2 = bloomConfig2.getFilter(Arrays.asList("abc", "def"));
+		BloomFilter<String> abc2    = bloomConfig2.getFilter("abc");
+		
+		System.out.println("[abc]     :"+bloomConfig2.getFilter("abc").toBinaryString());
+		System.out.println("[def]     :"+bloomConfig2.getFilter("def").toBinaryString());
+		System.out.println("[ghi]     :"+bloomConfig2.getFilter("ghi").toBinaryString());
+		System.out.println("[jkl]     :"+bloomConfig2.getFilter("jkl").toBinaryString());
+		System.out.println("[abc, def]:"+abcDef2.toBinaryString());
+		System.out.println();
+		System.out.println("[abc, def]"+(abcDef2.contains(bloomConfig2.getFilter(str)) ? " may contain" : " does not contain") + " [abc]");
+		System.out.println("[abc]"+(abc2.contains(bloomConfig2.getFilter("def")) ? " may contain" : " does not contain") + " [def]");
+		System.out.println("[abc]"+(abc2.contains(bloomConfig.getFilter("def")) ? " may contain" : " does not contain") + " [def]");
+	}
+}
