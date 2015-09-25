@@ -7,7 +7,7 @@ import java.nio.IntBuffer;
 import java.util.Arrays;
 
 /**
- * BloomFilterは集合の包含関係を判定するためのデータ構造である．
+ * 多byte長で表現されるBloom filter.
  * 
  * <p>BloomFilterの包含判定は擬陽性を伴うが，省スペース且つ高速である．
  * また，複数の集合のBloomFilterから和集合のBloomFilterを計算できる．
@@ -15,13 +15,13 @@ import java.util.Arrays;
  * 
  * @author YuyaAizawa
  *
- * @param <T> Bloom filterの要素
+ * @param <E> 要素の型
  */
-public final class BloomFilter<T> implements Cloneable {
-	private final BloomConfig<T> config;
+public final class BloomFilter<E> implements Cloneable {
+	private final BloomConfig<E> config;
 	private final int[] filter;
 	
-	BloomFilter(BloomConfig<T> config, int[] filter) {
+	BloomFilter(BloomConfig<E> config, int[] filter) {
 		this.config = config;
 		this.filter = filter;
 	}
@@ -32,7 +32,7 @@ public final class BloomFilter<T> implements Cloneable {
 	 * @param target
 	 * @return
 	 */
-	public boolean contains(BloomFilter<T> target) {
+	public boolean contains(BloomFilter<E> target) {
 		checkConfig(target);
 		
 		int[] a = this.filter;
@@ -52,7 +52,7 @@ public final class BloomFilter<T> implements Cloneable {
 	 * @param target
 	 * @return 要素の和に対応するBloomFilter
 	 */
-	public BloomFilter<T> union(BloomFilter<T> target) {
+	public BloomFilter<E> union(BloomFilter<E> target) {
 		checkConfig(target);
 		
 		int[] a = this.filter;
@@ -65,7 +65,7 @@ public final class BloomFilter<T> implements Cloneable {
 		return new BloomFilter<>(config, c);
 	}
 	
-	private void checkConfig(BloomFilter<T> target) {
+	private void checkConfig(BloomFilter<E> target) {
 		if(!config.equals(target.config)) {
 			throw new IllegalArgumentException("both filters must be genarated by the same generator");
 		}

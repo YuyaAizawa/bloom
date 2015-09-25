@@ -17,13 +17,14 @@ import java.util.stream.IntStream;
 /**
  * {@link BloomFilter}を生成するクラス.
  * 
- * @see {@link Bloom32}, {@link Bloom64}
+ * <p>フィルタの長さがintまたはlongであればそれぞれ{@link Bloom32}, {@link Bloom64}に簡易な実装がある．
+ * 
  * @author YuyaAizawa
  *
- * @param <T>
+ * @param <E> 要素の型
  */
-public class BloomConfig<T> {
-	private final List<Function<T, Integer>> hashes;
+public class BloomConfig<E> {
+	private final List<Function<E, Integer>> hashes;
 	private final int filterBytes;
 	private final int hashFilter;
 	
@@ -32,7 +33,7 @@ public class BloomConfig<T> {
 	 * @param hashes 利用するハッシュ関数
 	 * @param filterBytes BloomFilterのbyte長
 	 */
-	public BloomConfig(List<Function<T, Integer>> hashes, int filterBytes) {
+	public BloomConfig(List<Function<E, Integer>> hashes, int filterBytes) {
 		
 		if(filterBytes < 1 || filterBytes % 4 != 0) {
 			throw new IllegalArgumentException("filterBytes must be multiple of 4");
@@ -49,7 +50,7 @@ public class BloomConfig<T> {
 	 * @param hash 利用するハッシュ関数
 	 * @param filterBytes BloomFilterのbyte長
 	 */
-	public BloomConfig(Function<T, Integer> hash, int filterBytes) {
+	public BloomConfig(Function<E, Integer> hash, int filterBytes) {
 		this(Collections.singletonList(hash), filterBytes);
 	}
 	
@@ -57,8 +58,8 @@ public class BloomConfig<T> {
 	 * 空のBloomFilterを返す
 	 * @return 空のBloomFilter
 	 */
-	public BloomFilter<T> empty() {
-		return new BloomFilter<T>(this, new int[filterBytes/4]);
+	public BloomFilter<E> empty() {
+		return new BloomFilter<E>(this, new int[filterBytes/4]);
 	}
 	
 	/**
@@ -66,9 +67,9 @@ public class BloomConfig<T> {
 	 * @param t
 	 * @return
 	 */
-	public BloomFilter<T> getFilter(T t) {
+	public BloomFilter<E> getFilter(E t) {
 		int[] filter = new int[filterBytes/4];
-		for(Function<T, Integer> hash:hashes) {
+		for(Function<E, Integer> hash:hashes) {
 			int indexBit = hash.apply(t) & hashFilter;
 			filter[indexBit/32] |= (1 << (indexBit%32));
 		}
@@ -80,11 +81,11 @@ public class BloomConfig<T> {
 	 * @param ts
 	 * @return
 	 */
-	public final BloomFilter<T> getFilter(Collection<T> ts) {
+	public final BloomFilter<E> getFilter(Collection<E> ts) {
 		int[] filter = new int[filterBytes/4];
 		
-		for(T t:ts) {
-			for(Function<T, Integer> hash:hashes) {
+		for(E t:ts) {
+			for(Function<E, Integer> hash:hashes) {
 				int indexBit = hash.apply(t) & hashFilter;
 				filter[indexBit/32] |= (1 << (indexBit%32));
 			}
@@ -98,10 +99,11 @@ public class BloomConfig<T> {
 	 * SHA-256をハッシュ関数としたBloomConfigを作成する．
 	 * 
 	 * @param hashNum 利用するハッシュ関数の数(1~8)
-	 * @param filterBytes
+	 * @param filterBytes BloomFilterのbyte長
 	 * @param salt SHA-256に用いるソルト値
 	 * @return
 	 */
+	
 	public static <T> BloomConfig<T> withSHA256(int hashNum, int filterBytes, byte[] salt) {
 		
 		if(hashNum < 1 || 8 < hashNum) {
@@ -130,6 +132,13 @@ public class BloomConfig<T> {
 		}
 	}
 	
+	/**
+	 * SHA-256をハッシュ関数としたBloomConfigを作成する．
+	 * 
+	 * @param hashNum 利用するハッシュ関数の数(1~8)
+	 * @param filterBytes BloomFilterのbyte長
+	 * @return
+	 */
 	public static <T> BloomConfig<T> withSHA256(int hashNum, int filterBytes) {
 		return withSHA256(hashNum, filterBytes, new byte[]{});
 	}

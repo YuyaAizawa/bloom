@@ -7,17 +7,18 @@ import java.util.function.Function;
 /**
  * long値で表現されるBloom filterを生成するクラス.
  * 
- * @see {@link Bloom32}, {@link BloomConfig}
+ * @see Bloom32
+ * @see BloomConfig
  * @author YuyaAizawa
  *
- * @param <T>
+ * @param <E> 要素の型
  */
-public final class Bloom64<T> {
+public final class Bloom64<E> {
 	// 64bitのフィルターにフラグを立てるにはhashは6bitで十分
 	private static final int HASH_LENGTH = 6;
 	private static final int HASH_FILTER = (1 << HASH_LENGTH)-1;
 	
-	private final Function<T, Integer> hashFunction;
+	private final Function<E, Integer> hashFunction;
 	private final int k;
 	
 	/**
@@ -28,7 +29,7 @@ public final class Bloom64<T> {
 	 * @param k 利用するハッシュ関数の数(1~5)
 	 * @param hashFunction 元となるハッシュ関数
 	 */
-	public Bloom64(int k, Function<T, Integer> hashFunction) {
+	public Bloom64(int k, Function<E, Integer> hashFunction) {
 		if(!(1 <= k && k <= Integer.SIZE/HASH_LENGTH)) {
 			// 5つもできれば十分ですよね...
 			throw new IllegalArgumentException();
@@ -52,7 +53,7 @@ public final class Bloom64<T> {
 	 * @param object フィルターするオブジェクト
 	 * @return objectから計算されたBloom filter
 	 */
-	public long getFilter(T object) {
+	public long getFilter(E object) {
 		long ret = 0;
 		int hash = hashFunction == null ? object.hashCode() : hashFunction.apply(object);
 		for(int i = 0; i < k;i++) {
@@ -68,7 +69,7 @@ public final class Bloom64<T> {
 	 * @return objectsから計算されたBloom filter
 	 */
 	@SafeVarargs
-	public final long getFilter(T... objects) {
+	public final long getFilter(E... objects) {
 		return Arrays.stream(objects)
 				.map(t -> getFilter(t))
 				.reduce(0L, (l,r) -> l | r);
@@ -79,8 +80,8 @@ public final class Bloom64<T> {
 	 * @param collection フィルターするオブジェクトを含むコレクション
 	 * @return collectionから計算されたBloom filter
 	 */
-	public final Long getFilter(Collection<T> c) {
-		return c.stream()
+	public final Long getFilter(Collection<E> collection) {
+		return collection.stream()
 				.map(t -> getFilter(t))
 				.reduce(0L, (l,r) -> l | r);
 	}
