@@ -6,6 +6,7 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -24,7 +25,7 @@ import java.util.stream.IntStream;
  * @param <E> 要素の型
  */
 public class BloomConfig<E> {
-	private final List<Function<E, Integer>> hashes;
+	private final ArrayList<Function<E, Integer>> hashes;
 	private final int filterBytes;
 	private final int hashFilter;
 	
@@ -40,7 +41,8 @@ public class BloomConfig<E> {
 			// FIXME
 		}
 		
-		this.hashes = hashes;
+		this.hashes = new ArrayList<>(hashes.size());
+		this.hashes.addAll(hashes);
 		this.filterBytes = filterBytes;
 		this.hashFilter = filterBytes*8-1;
 	}
@@ -67,13 +69,11 @@ public class BloomConfig<E> {
 	 * @param t
 	 * @return
 	 */
-	public BloomFilter<E> getFilter(E t) {
-		int[] filter = new int[filterBytes/4];
-		for(Function<E, Integer> hash:hashes) {
-			int indexBit = hash.apply(t) & hashFilter;
-			filter[indexBit/32] |= (1 << (indexBit%32));
-		}
-		return new BloomFilter<>(this, filter);
+	public BloomFilter<E> getFilter(E e) {
+		int f[] = new int[filterBytes/4];
+		add(f, e);
+		
+		return new BloomFilter<>(this, f);
 	}
 	
 	/**
@@ -81,16 +81,30 @@ public class BloomConfig<E> {
 	 * @param ts
 	 * @return
 	 */
-	public final BloomFilter<E> getFilter(Collection<E> ts) {
-		int[] filter = new int[filterBytes/4];
+	public final BloomFilter<E> getFilter(Collection<E> collection) {
+		int f[] = new int[filterBytes/4];
 		
-		for(E t:ts) {
-			for(Function<E, Integer> hash:hashes) {
-				int indexBit = hash.apply(t) & hashFilter;
-				filter[indexBit/32] |= (1 << (indexBit%32));
+		for(E e:collection) {
+			add(f, e);
+		}
+		return new BloomFilter<>(this, f);
+	}
+	
+	void add(int[] f, E e) {
+		for(Function<E, Integer> hash:hashes) {
+			int indexBit = hash.apply(e) & hashFilter;
+			f[indexBit/32] |= (1 << (indexBit%32));
+		}
+	}
+	
+	boolean contains(int[] f, E e) {
+		for(Function<E, Integer> hash:hashes) {
+			int indexBit = hash.apply(e) & hashFilter;
+			if((f[indexBit/32] & (1 << (indexBit%32))) == 0) {
+				return false;
 			}
 		}
-		return new BloomFilter<>(this, filter);
+		return true;
 	}
 	
 	// ここから下は非常に読みにくい

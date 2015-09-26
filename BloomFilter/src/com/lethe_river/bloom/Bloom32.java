@@ -65,18 +65,6 @@ public final class Bloom32<E> {
 	
 	/**
 	 * Bloom filterを返す．
-	 * @param objects フィルターするオブジェクト
-	 * @return objectsから計算されたBloom filter
-	 */
-	@SafeVarargs
-	public final int getFilter(E... objects) {
-		return Arrays.stream(objects)
-				.map(t -> getFilter(t))
-				.reduce(0, (l,r) -> l | r);
-	}
-	
-	/**
-	 * Bloom filterを返す．
 	 * @param collection フィルターするオブジェクトを含むコレクション
 	 * @return collectionから計算されたBloom filter
 	 */
@@ -101,7 +89,7 @@ public final class Bloom32<E> {
 		
 		String str = new String("abc");
 		
-		int filterAbcDef = bloom.getFilter("abc", "def");
+		int filterAbcDef = bloom.getFilter(Arrays.asList("abc", "def"));
 		int filterAbc    = bloom.getFilter("abc");
 		
 		System.out.println("abc:"+toBinaryStringZeroFill(bloom.getFilter("abc")));

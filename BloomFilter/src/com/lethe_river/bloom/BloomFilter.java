@@ -17,7 +17,7 @@ import java.util.Arrays;
  *
  * @param <E> 要素の型
  */
-public final class BloomFilter<E> implements Cloneable {
+public class BloomFilter<E> implements Cloneable {
 	private final BloomConfig<E> config;
 	private final int[] filter;
 	
@@ -27,7 +27,33 @@ public final class BloomFilter<E> implements Cloneable {
 	}
 	
 	/**
-	 * このBloomFilterがtargetを包含するか判定する．
+	 * フィルタに要素を追加する．
+	 * @param element 追加する要素
+	 */
+	public void add(E element) {
+		config.add(filter, element);
+	}
+	
+	/**
+	 * フィルタからすべての要素を削除する.
+	 */
+	public void clear() {
+		for(int i = 0;i < filter.length;i++) {
+			filter[i] = 0;
+		}
+	}
+	
+	/**
+	 * フィルタがelementを含む可能性があるときtrueを返す．
+	 * @param element　要素
+	 * @return　elementを含む可能性があるときtrue
+	 */
+	public boolean contains(E element) {
+		return config.contains(filter, element);
+	}
+	
+	/**
+	 * フィルタがtargetを包含するか判定する．
 	 * 対象は同一の{@link BloomConfig}から生成される必要がある．
 	 * @param target
 	 * @return
@@ -47,7 +73,7 @@ public final class BloomFilter<E> implements Cloneable {
 	}
 	
 	/**
-	 * このBloomFilterがtargetの和を計算する．
+	 * このBloomFilterと対象の和を計算する．
 	 * 対象は同一の{@link BloomConfig}から生成される必要がある．
 	 * @param target
 	 * @return 要素の和に対応するBloomFilter
@@ -134,6 +160,28 @@ public final class BloomFilter<E> implements Cloneable {
 		return new BloomFilter<>(config, Arrays.copyOf(filter, filter.length));
 	}
 	
+	@Override
+	public int hashCode() {
+		return config.hashCode();
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		BloomFilter<?> other = (BloomFilter<?>) obj;
+		
+		if (!config.equals(other.config))
+			return false;
+		if (!Arrays.equals(filter, other.filter))
+			return false;
+		return true;
+	}
+
 	/**
 	 * さんぷるだよ．消すかもよ．
 	 * @param args
