@@ -1,19 +1,12 @@
 package com.lethe_river.bloom;
 
-import java.io.IOException;
-import java.io.ObjectOutputStream;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 /**
  * {@link BloomFilter}を生成するクラス.
@@ -25,35 +18,58 @@ import java.util.stream.IntStream;
  * @param <E> 要素の型
  */
 public class BloomConfig<E> {
-	private final ArrayList<Function<E, Integer>> hashes;
+	
+	// 使用するハッシュの数
+	private final int hashNum;
+	
+	// フィルタの長さ(byte)
 	private final int filterBytes;
+	
+	// 元となるハッシュ値を求めてhashTempに代入する
+	private final Consumer<E> hashConsumer;
+	private final byte[] hashTmp; // シフトの関係で3byte余計に
+		
+	// ひとつのフラグを立てるのに必要なハッシュの桁数(bit)
+	private final int hashLength;
 	private final int hashFilter;
 	
-	/**
-	 * 指定した関数をハッシュとして用いるBloomConfigを返す
-	 * @param hashes 利用するハッシュ関数
-	 * @param filterBytes BloomFilterのbyte長
-	 */
-	public BloomConfig(List<Function<E, Integer>> hashes, int filterBytes) {
-		
+	// hashConsumerを呼び出したらhashTmpに代入される状態にしておくこと
+	BloomConfig(int hashNum, int filterBytes, int avalableHashBytes, Consumer<E> hashConsumer, byte[] hashTmp) {
 		if(filterBytes < 1 || filterBytes % 4 != 0) {
 			throw new IllegalArgumentException("filterBytes must be multiple of 4");
 			// FIXME
 		}
 		
-		this.hashes = new ArrayList<>(hashes.size());
-		this.hashes.addAll(hashes);
+		this.hashLength = 32 - Integer.numberOfLeadingZeros(filterBytes*8 - 1);
+		if(hashLength * hashNum > avalableHashBytes * 8) {
+			throw new IllegalArgumentException("Not enough hash!");
+		}
+		this.hashNum = hashNum;
 		this.filterBytes = filterBytes;
-		this.hashFilter = filterBytes*8-1;
+		this.hashConsumer = hashConsumer;
+		this.hashTmp = hashTmp;
+		this.hashFilter = (1 << hashLength) - 1;
 	}
 	
 	/**
-	 * 指定した関数をハッシュとして用いるBloomConfigを返す
-	 * @param hash 利用するハッシュ関数
-	 * @param filterBytes BloomFilterのbyte長
+	 * 指定した関数をハッシュの元として用いるBloomConfigを返す.
+	 * @param hashFunction　元となるハッシュ関数
+	 * @param hashNum　BloomFilterが利用するハッシュの数
+	 * @param filterBytes　BloomFilterのbyte長
+	 * @return BloomConfig
+	 * @throws IllegalArgumentException 元となるハッシュ関数から十分な数のハッシュを作れないとき
 	 */
-	public BloomConfig(Function<E, Integer> hash, int filterBytes) {
-		this(Collections.singletonList(hash), filterBytes);
+	public static <E> BloomConfig<E> fromIntHash(Function<E, Integer> hashFunction, int hashNum, int filterBytes) {
+		int hashBits = 32 - Integer.numberOfLeadingZeros(filterBytes*8 - 1);
+		if(hashBits * hashNum > 32) {
+			throw new IllegalArgumentException("Too much hashNum or filterBytes!");
+		}
+		
+		byte[] hashTmp = new byte[Integer.BYTES+3];
+		ByteBuffer bb = ByteBuffer.wrap(hashTmp);
+		bb.order(ByteOrder.LITTLE_ENDIAN);
+		Consumer<E> hashConsumer = e -> { bb.putInt(0, hashFunction.apply(e)); };
+		return new BloomConfig<>(hashNum, filterBytes, Integer.BYTES, hashConsumer, hashTmp);
 	}
 	
 	/**
@@ -61,7 +77,7 @@ public class BloomConfig<E> {
 	 * @return 空のBloomFilter
 	 */
 	public BloomFilter<E> empty() {
-		return new BloomFilter<E>(this, new int[filterBytes/4]);
+		return new BloomFilter<E>(this, new int[filterBytes/Integer.BYTES]);
 	}
 	
 	/**
@@ -70,7 +86,7 @@ public class BloomConfig<E> {
 	 * @return
 	 */
 	public BloomFilter<E> getFilter(E e) {
-		int f[] = new int[filterBytes/4];
+		int f[] = new int[filterBytes/Integer.BYTES];
 		add(f, e);
 		
 		return new BloomFilter<>(this, f);
@@ -90,107 +106,103 @@ public class BloomConfig<E> {
 		return new BloomFilter<>(this, f);
 	}
 	
+	@Override
+	public String toString() {
+		return "BloomConfig [hashNum=" + hashNum + ", filterBytes=" + filterBytes + ", hashLength=" + hashLength
+				+ ", hashFilter=" + hashFilter + "]";
+	}
+
 	void add(int[] f, E e) {
-		for(Function<E, Integer> hash:hashes) {
-			int indexBit = hash.apply(e) & hashFilter;
-			f[indexBit/32] |= (1 << (indexBit%32));
+		hashConsumer.accept(e);
+		
+		for(int i = 0;i < hashNum;i++) {
+			int start = (i * hashLength) / Byte.SIZE;
+			int shift = (i * hashLength) % Byte.SIZE;
+			int indexBit =
+					((hashTmp[start+3] & 0xff) << Byte.SIZE*3) |
+					((hashTmp[start+2] & 0xff) << Byte.SIZE*2) |
+					((hashTmp[start+1] & 0xff) << Byte.SIZE*1) |
+					 (hashTmp[start]   & 0xff);
+			indexBit = (indexBit >> shift) & hashFilter;
+			f[indexBit/Integer.SIZE] |= (1 << (indexBit%Integer.SIZE));
 		}
 	}
 	
 	boolean contains(int[] f, E e) {
-		for(Function<E, Integer> hash:hashes) {
-			int indexBit = hash.apply(e) & hashFilter;
-			if((f[indexBit/32] & (1 << (indexBit%32))) == 0) {
+		hashConsumer.accept(e);
+		
+		for(int i = 0;i < hashNum;i++) {
+			int start = (i * hashLength) / Byte.SIZE;
+			int shift = (i * hashLength) % Byte.SIZE;
+			int indexBit =
+					((hashTmp[start+3] & 0xff) << Byte.SIZE*3) |
+					((hashTmp[start+2] & 0xff) << Byte.SIZE*2) |
+					((hashTmp[start+1] & 0xff) << Byte.SIZE*1) |
+					 (hashTmp[start]   & 0xff);
+			indexBit = (indexBit >> shift) & hashFilter;
+			
+			if((f[indexBit/Integer.SIZE] & (1 << (indexBit%Integer.SIZE))) == 0) {
 				return false;
 			}
 		}
 		return true;
 	}
 	
-	// ここから下は非常に読みにくい
-	
 	/**
 	 * SHA-256をハッシュ関数としたBloomConfigを作成する．
 	 * 
-	 * @param hashNum 利用するハッシュ関数の数(1~8)
+	 * @param hashNum 利用するハッシュ関数の数
 	 * @param filterBytes BloomFilterのbyte長
+	 * @param converter 要素をSHA-256の入力byte列に変換する関数
 	 * @param salt SHA-256に用いるソルト値
 	 * @return
 	 */
 	
-	public static <T> BloomConfig<T> withSHA256(int hashNum, int filterBytes, byte[] salt) {
+	public static <T> BloomConfig<T> withSHA256(int hashNum, int filterBytes, Function<T, Byte[]> converter, byte[] salt) {
 		
-		if(hashNum < 1 || 8 < hashNum) {
-			throw new IllegalArgumentException();
+		int hashLength = 32 - Integer.numberOfLeadingZeros(filterBytes*8 - 1);
+		if(hashLength * hashNum > 256) {
+			throw new IllegalArgumentException("Too much hashNum or filterBytes!");
 		}
 		
 		try {
-			MessageDigest md = MessageDigest.getInstance("SHA-256");
-			
-			byte[] buff = new byte[32];
+			byte[] buff = new byte[32+3];
 			ByteBuffer bb = ByteBuffer.wrap(buff);
 			
+			Consumer<T> hashConsumer = new Sha256Consumer<>(bb, salt, converter);
 			
-			@SuppressWarnings("unchecked")
-			List<Function<T, Integer>> hashFuns = IntStream.rangeClosed(0, hashNum-1)
-			.mapToObj(i -> i == 0 ? (Function<T, Integer>)
-					t -> {
-						withSHA256SubCon(md, bb, salt).accept(t);
-						return withSHA256SubFun(bb, 0).apply(t);
-					} : (Function<T, Integer>)withSHA256SubFun(bb, i*4))
-			.collect(Collectors.toList());
-			
-			return new BloomConfig<>(hashFuns, filterBytes);
+			return new BloomConfig<>(hashNum, filterBytes, 32, hashConsumer, buff);
 		} catch (NoSuchAlgorithmException e1) {
 			throw new RuntimeException(e1);
 		}
 	}
 	
-	/**
-	 * SHA-256をハッシュ関数としたBloomConfigを作成する．
-	 * 
-	 * @param hashNum 利用するハッシュ関数の数(1~8)
-	 * @param filterBytes BloomFilterのbyte長
-	 * @return
-	 */
-	public static <T> BloomConfig<T> withSHA256(int hashNum, int filterBytes) {
-		return withSHA256(hashNum, filterBytes, new byte[]{});
-	}
-	
-	private static <T> Consumer<T> withSHA256SubCon(MessageDigest md, ByteBuffer bb, byte[] salt) {
-		return t -> {
-			md.update(salt);
-			try (ObjectOutputStream oos = new Mdoos(md)) {
-				oos.writeObject(t);
-			} catch (IOException e) {
-				throw new RuntimeException();
-			}
-			bb.position(0);
-			bb.put(md.digest());
-		};
-	}
-	
-	private static class Mdoos extends ObjectOutputStream {
+	private static class Sha256Consumer<T> implements Consumer<T> {
 		
-		protected Mdoos(MessageDigest md) throws IOException, SecurityException {
-			super(new OutputStream() {
-				@Override
-				public void write(int b) throws IOException {
-					md.update((byte)(0xff & b));
-				}
-			});
+		final MessageDigest sha256;
+		final ByteBuffer bb;
+		final byte[] salt;
+		
+		final Function<T, Byte[]> converter;
+		
+		final byte[] tmp = new byte[32];
+		
+		public Sha256Consumer(ByteBuffer bb, byte[] salt, Function<T, Byte[]> converter) throws NoSuchAlgorithmException {
+			sha256 = MessageDigest.getInstance("SHA-256");
+			this.bb = bb;
+			this.salt = salt;
+			this.converter = converter;
 		}
 		
-	}
-	
-	private static <T> Function<T, Integer> withSHA256SubFun(ByteBuffer bb, int startByte) {
-		return t -> {
-			byte[] b = bb.array();
-			return
-					((b[startByte+3] & 0xff) << 24) |
-					((b[startByte+2] & 0xff) << 16) |
-					((b[startByte+1] & 0xff) <<  8) |
-					(b[startByte] & 0xff);
-		};
+		@Override
+		public void accept(T t) {
+			sha256.update(salt);
+			Byte[] b = converter.apply(t);
+			for(int i = 0;i < b.length;i++) {
+				tmp[i] = b[i];
+			}
+			bb.position(0);
+			bb.put(sha256.digest(tmp));
+		}
 	}
 }

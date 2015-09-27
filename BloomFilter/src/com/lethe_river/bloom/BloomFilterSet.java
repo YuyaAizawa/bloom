@@ -1,6 +1,5 @@
 package com.lethe_river.bloom;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -174,8 +173,7 @@ public class BloomFilterSet<E> implements Set<E> {
 		System.out.println("1000 elements, 2 hashes, 1024 bytes field");
 		System.out.println();
 		
-		BloomConfig<String> config = new BloomConfig<>(Arrays.asList(
-				String::hashCode, s -> s.hashCode() >> 13), 1024);
+		BloomConfig<String> config = BloomConfig.fromIntHash(String::hashCode, 2, 1024);
 		BloomFilter<String> filter = config.empty();
 		
 		List<String> list1 = IntStream.rangeClosed(1, 1000).mapToObj(i -> getStrWithoutA()).collect(Collectors.toList());
@@ -204,7 +202,14 @@ public class BloomFilterSet<E> implements Set<E> {
 		Set<String> set1 = new TreeSet<>();
 		Set<String> set2 = new BloomFilterSet<>(config, TreeSet::new);
 		
-		BloomConfig<String> config3 = BloomConfig.withSHA256(2, 512, new byte[]{1,2,3});
+		BloomConfig<String> config3 = BloomConfig.<String>withSHA256(2, 1024, s -> {
+			byte[] b = s.getBytes();
+			Byte[] c = new Byte[b.length];
+			for(int i = 0;i < b.length;i++) {
+				c[i] = b[i];
+			}
+			return c;
+		}, new byte[]{1,2,3});
 		Set<String> set3 = new BloomFilterSet<>(config3, TreeSet::new);
 		
 		Set<String> cset = new BloomFilterSet<>(config, TreeSet::new);

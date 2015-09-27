@@ -188,9 +188,7 @@ public class BloomFilter<E> implements Cloneable {
 	 */
 	public static void main(String[] args) {
 		
-		BloomConfig<String> bloomConfig = new BloomConfig<>(
-				Arrays.asList(String::hashCode),
-				16);
+		BloomConfig<String> bloomConfig = BloomConfig.fromIntHash(String::hashCode, 2, 16);
 		
 		String str = new String("abc");
 		
@@ -211,7 +209,14 @@ public class BloomFilter<E> implements Cloneable {
 		System.out.println();
 		System.out.println();
 		System.out.println("-- sha256 ver. --");
-		BloomConfig<String> bloomConfig2 = BloomConfig.withSHA256(4, 16, new byte[]{1,2,3});
+		BloomConfig<String> bloomConfig2 = BloomConfig.withSHA256(4, 16, s -> {
+			byte[] b = s.getBytes();
+			Byte[] c = new Byte[b.length];
+			for(int i = 0;i < b.length;i++) {
+				c[i] = b[i];
+			}
+			return c;
+		}, new byte[]{1,2,3});
 		BloomFilter<String> abcDef2 = bloomConfig2.getFilter(Arrays.asList("abc", "def"));
 		BloomFilter<String> abc2    = bloomConfig2.getFilter("abc");
 		
