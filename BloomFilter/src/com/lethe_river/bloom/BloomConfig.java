@@ -5,6 +5,8 @@ import java.nio.ByteOrder;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -40,7 +42,7 @@ public class BloomConfig<E> {
 			// FIXME
 		}
 		
-		this.hashLength = 32 - Integer.numberOfLeadingZeros(filterBytes*8 - 1);
+		this.hashLength = Integer.SIZE - Integer.numberOfLeadingZeros(filterBytes*8 - 1);
 		if(hashLength * hashNum > avalableHashBytes * 8) {
 			throw new IllegalArgumentException("Not enough hash!");
 		}
@@ -60,16 +62,31 @@ public class BloomConfig<E> {
 	 * @throws IllegalArgumentException 元となるハッシュ関数から十分な数のハッシュを作れないとき
 	 */
 	public static <E> BloomConfig<E> fromIntHash(Function<E, Integer> hashFunction, int hashNum, int filterBytes) {
-		int hashBits = 32 - Integer.numberOfLeadingZeros(filterBytes*8 - 1);
-		if(hashBits * hashNum > 32) {
-			throw new IllegalArgumentException("Too much hashNum or filterBytes!");
+		return fromIntHash(Collections.singletonList(hashFunction), hashNum, filterBytes);
+	}
+	
+	/**
+	 * 指定した複数の関数をハッシュの元として用いるBloomConfigを返す.
+	 * @param hashFunctions　元となるハッシュ関数のList
+	 * @param hashNum　BloomFilterが利用するハッシュの数
+	 * @param filterBytes　BloomFilterのbyte長
+	 * @return BloomConfig
+	 * @throws IllegalArgumentException 元となるハッシュ関数から十分な数のハッシュを作れないとき
+	 */
+	public static <E> BloomConfig<E> fromIntHash(List<Function<E, Integer>> hashFunctions, int hashNum, int filterBytes) {
+		int hashBits = Integer.SIZE - Integer.numberOfLeadingZeros(filterBytes*8 - 1);
+		if(hashBits * hashNum > Integer.SIZE * hashFunctions.size()) {
+			throw new IllegalArgumentException("No enough hashFunctions!");
 		}
 		
-		byte[] hashTmp = new byte[Integer.BYTES+3];
+		byte[] hashTmp = new byte[hashFunctions.size()*Integer.BYTES+3];
 		ByteBuffer bb = ByteBuffer.wrap(hashTmp);
 		bb.order(ByteOrder.LITTLE_ENDIAN);
-		Consumer<E> hashConsumer = e -> { bb.putInt(0, hashFunction.apply(e)); };
-		return new BloomConfig<>(hashNum, filterBytes, Integer.BYTES, hashConsumer, hashTmp);
+		Consumer<E> hashConsumer = e -> {
+			bb.position(0);
+			hashFunctions.forEach(f -> {bb.putInt(f.apply(e));});
+		};
+		return new BloomConfig<>(hashNum, filterBytes, Integer.BYTES*hashFunctions.size(), hashConsumer, hashTmp);
 	}
 	
 	/**
