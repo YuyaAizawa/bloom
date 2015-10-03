@@ -23,8 +23,8 @@ public final class Bloom32<E> {
 	private final int k;
 	
 	/**
-	 * 利用するハッシュ関数の数と元となるハッシュ関数を指定してBloom filterの生成器をつくる．
-	 * int値を返すハッシュ関数からは最大6つのハッシュ値を利用できる．
+	 * 利用するハッシュ関数の数と元となるハッシュ関数を指定してBloom filterの生成器をつくる.
+	 * int値を返すハッシュ関数からは最大6つのハッシュ値を利用できる.
 	 * 元となるハッシュ関数から得たint値のハッシュは，内部で5bit毎に分割されて利用される.
 	 * 
 	 * @param k 利用するハッシュ関数の数(1~6)
@@ -39,8 +39,8 @@ public final class Bloom32<E> {
 	}
 	
 	/**
-	 * 利用するハッシュ関数の数を指定してBloom filterの生成器を作る．
-	 * 元となるハッシュ関数としてhashCode()を利用する．
+	 * 利用するハッシュ関数の数を指定してBloom filterの生成器を作る.
+	 * 元となるハッシュ関数としてhashCode()を利用する.
 	 * 
 	 * @param k 利用するハッシュ関数の数(1~5)
 	 */
@@ -49,7 +49,7 @@ public final class Bloom32<E> {
 	}
 	
 	/**
-	 * Bloom filterを返す．
+	 * Bloom filterを返す.
 	 * @param object フィルターするオブジェクト
 	 * @return objectから計算されたBloom filter
 	 */
@@ -64,7 +64,7 @@ public final class Bloom32<E> {
 	}
 	
 	/**
-	 * Bloom filterを返す．
+	 * Bloom filterを返す.
 	 * @param collection フィルターするオブジェクトを含むコレクション
 	 * @return collectionから計算されたBloom filter
 	 */
@@ -75,7 +75,7 @@ public final class Bloom32<E> {
 	}
 	
 	/**
-	 * Bloom filter間の包含関係を判定する．
+	 * Bloom filter間の包含関係を判定する.
 	 * @param sup 包含するBloom filter
 	 * @param sub 包含されるBloom filter
 	 * @return 包含すればtrue

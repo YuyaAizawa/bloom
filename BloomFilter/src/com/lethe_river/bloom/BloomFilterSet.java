@@ -15,8 +15,8 @@ import java.util.stream.Stream;
 /**
  * 保持する要素の確認に{@link BloomFilter}を利用するSet.
  * 
- * 要素数の多いSetにおいて，結果が偽となるBloomFilterCheckSet同士のcontainsAll,equalsを多数行う場合に有効である．
- * このSetは他のSetにBloomFilterを追加して作られるが，元ととなるSetに関わらず要素の削除には対応していない．
+ * 要素数の多いSetにおいて，結果が偽となるBloomFilterCheckSet同士のcontainsAll,equalsを多数行う場合に有効である.
+ * このSetは他のSetにBloomFilterを追加して作られるが，元ととなるSetに関わらず要素の削除には対応していない.
  * 
  * @author YuyaAizawa
  *
@@ -27,7 +27,7 @@ public class BloomFilterSet<E> implements Set<E> {
 	private final BloomFilter<E> filter;
 	
 	/**
-	 * 指定したSetにBloomFilterを追加したSetを作成する．
+	 * 指定したSetにBloomFilterを追加したSetを作成する.
 	 * @param config BloomFilterの設定
 	 * @param surpplier　SetのSupplier
 	 */
@@ -173,7 +173,7 @@ public class BloomFilterSet<E> implements Set<E> {
 		System.out.println("1000 elements, 2 hashes, 1024 bytes field");
 		System.out.println();
 		
-		BloomConfig<String> config = BloomConfig.fromIntHash(String::hashCode, 2, 1024);
+		BloomConfig<String> config = BloomConfig.getInstance(String::hashCode, 2, 1024);
 		BloomFilter<String> filter = config.empty();
 		
 		List<String> list1 = IntStream.rangeClosed(1, 1000).mapToObj(i -> getStrWithoutA()).collect(Collectors.toList());

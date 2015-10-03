@@ -55,8 +55,8 @@ public class BloomFilter<E> implements Cloneable {
 	/**
 	 * フィルタがtargetを包含するか判定する．
 	 * 対象は同一の{@link BloomConfig}から生成される必要がある．
-	 * @param target
-	 * @return
+	 * @param target　包含されるBloomFilter
+	 * @return　包含されるならtrue.ただし擬陽性の可能性がある
 	 */
 	public boolean contains(BloomFilter<E> target) {
 		checkConfig(target);
@@ -75,7 +75,7 @@ public class BloomFilter<E> implements Cloneable {
 	/**
 	 * このBloomFilterと対象の和を計算する．
 	 * 対象は同一の{@link BloomConfig}から生成される必要がある．
-	 * @param target
+	 * @param target　対象のBloomFilter
 	 * @return 要素の和に対応するBloomFilter
 	 */
 	public BloomFilter<E> union(BloomFilter<E> target) {
@@ -99,7 +99,7 @@ public class BloomFilter<E> implements Cloneable {
 	
 	/**
 	 * このBloomFilterのbyte配列表現を返す．
-	 * @return
+	 * @return byte配列表現
 	 */
 	public byte[] toByteArray() {
 		ByteBuffer byteBuffer = ByteBuffer.allocate(filter.length * 4);
@@ -111,7 +111,7 @@ public class BloomFilter<E> implements Cloneable {
 	
 	/**
 	 * このBloomFilterのbyte配列表現を{@link java.io.InputStream}で取得する．
-	 * @return
+	 * @return byte配列表現のInputStream
 	 */
 	public InputStream toByteStream() {
 		return new InputStream() {
@@ -136,7 +136,7 @@ public class BloomFilter<E> implements Cloneable {
 	
 	/**
 	 * このBloomFilterを表す二進数の文字列を返す．
-	 * @return
+	 * @return　二進数の文字列
 	 */
 	public String toBinaryString() {
 		StringBuilder sb = new StringBuilder();
@@ -182,13 +182,12 @@ public class BloomFilter<E> implements Cloneable {
 		return true;
 	}
 
-	/**
+	/*
 	 * さんぷるだよ．消すかもよ．
-	 * @param args
 	 */
 	public static void main(String[] args) {
 		
-		BloomConfig<String> bloomConfig = BloomConfig.fromIntHash(String::hashCode, 2, 16);
+		BloomConfig<String> bloomConfig = BloomConfig.getInstance(String::hashCode, 2, 16);
 		
 		String str = new String("abc");
 		

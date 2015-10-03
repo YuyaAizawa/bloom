@@ -13,7 +13,7 @@ import java.util.function.Function;
 /**
  * {@link BloomFilter}を生成するクラス.
  * 
- * <p>フィルタの長さがintまたはlongであればそれぞれ{@link Bloom32}, {@link Bloom64}に簡易な実装がある．
+ * <p>フィルタの長さがintまたはlongであればそれぞれ{@link Bloom32}, {@link Bloom64}に簡易な実装がある.
  * 
  * @author YuyaAizawa
  *
@@ -60,9 +60,11 @@ public class BloomConfig<E> {
 	 * @param filterBytes　BloomFilterのbyte長
 	 * @return BloomConfig
 	 * @throws IllegalArgumentException 元となるハッシュ関数から十分な数のハッシュを作れないとき
+	 * 
+	 * @param <E> 要素の型
 	 */
-	public static <E> BloomConfig<E> fromIntHash(Function<E, Integer> hashFunction, int hashNum, int filterBytes) {
-		return fromIntHash(Collections.singletonList(hashFunction), hashNum, filterBytes);
+	public static <E> BloomConfig<E> getInstance(Function<E, Integer> hashFunction, int hashNum, int filterBytes) {
+		return getInstance(Collections.singletonList(hashFunction), hashNum, filterBytes);
 	}
 	
 	/**
@@ -72,8 +74,10 @@ public class BloomConfig<E> {
 	 * @param filterBytes　BloomFilterのbyte長
 	 * @return BloomConfig
 	 * @throws IllegalArgumentException 元となるハッシュ関数から十分な数のハッシュを作れないとき
+	 * 
+	 * @param <E> 要素の型
 	 */
-	public static <E> BloomConfig<E> fromIntHash(List<Function<E, Integer>> hashFunctions, int hashNum, int filterBytes) {
+	public static <E> BloomConfig<E> getInstance(List<Function<E, Integer>> hashFunctions, int hashNum, int filterBytes) {
 		int hashBits = Integer.SIZE - Integer.numberOfLeadingZeros(filterBytes*8 - 1);
 		if(hashBits * hashNum > Integer.SIZE * hashFunctions.size()) {
 			throw new IllegalArgumentException("No enough hashFunctions!");
@@ -98,9 +102,9 @@ public class BloomConfig<E> {
 	}
 	
 	/**
-	 * 指定したオブジェクトを含むBloomFilterを返す．
-	 * @param t
-	 * @return
+	 * 指定したオブジェクトを含むBloomFilterを返す.
+	 * @param e オブジェクト
+	 * @return 指定したオブジェクトを含むBloomFilter
 	 */
 	public BloomFilter<E> getFilter(E e) {
 		int f[] = new int[filterBytes/Integer.BYTES];
@@ -110,9 +114,9 @@ public class BloomConfig<E> {
 	}
 	
 	/**
-	 * コレクションに含まれるオブジェクトを全て含むBloomFilterを返す．
-	 * @param ts
-	 * @return
+	 * コレクションに含まれるオブジェクトを全て含むBloomFilterを返す.
+	 * @param collection コレクション
+	 * @return コレクションの要素をすべて含むBloomFilter
 	 */
 	public final BloomFilter<E> getFilter(Collection<E> collection) {
 		int f[] = new int[filterBytes/4];
@@ -166,13 +170,15 @@ public class BloomConfig<E> {
 	}
 	
 	/**
-	 * SHA-256をハッシュ関数としたBloomConfigを作成する．
+	 * SHA-256をハッシュ関数としたBloomConfigを作成する.
 	 * 
 	 * @param hashNum 利用するハッシュ関数の数
 	 * @param filterBytes BloomFilterのbyte長
 	 * @param converter 要素をSHA-256の入力byte列に変換する関数
 	 * @param salt SHA-256に用いるソルト値
-	 * @return
+	 * @return　SHA-256をハッシュ関数としたBloomConfig
+	 * 
+	 * @param <T> 要素の型
 	 */
 	
 	public static <T> BloomConfig<T> withSHA256(int hashNum, int filterBytes, Function<T, Byte[]> converter, byte[] salt) {
